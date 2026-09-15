@@ -1,24 +1,80 @@
 import re
 from nltk.stem import SnowballStemmer
 import pandas as pd
+from PIL import Image
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import streamlit as st
 
-# Configuración de la aplicación
+# -------------------------------------------------------------
+# 1. CONFIGURACIÓN DE PÁGINA Y ESTILOS CSS
+# -------------------------------------------------------------
 st.set_page_config(
-    page_title="BookFinder - Buscador Inteligente en Libros",
-    page_icon="📚",
+    page_title="BookMind - Buscador Inteligente",
+    page_icon="🧠",
     layout="wide",
 )
 
-st.title("📚 BookFinder: Asistente de Lectura y Citas")
-st.caption(
-    "Ingresa pasajes o capítulos de un libro y realiza preguntas para ubicar"
-    " la idea exacta mediante análisis TF-IDF."
+# Estilos visuales personalizados (Modo Oscuro Académico / Neomórfico)
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background-color: #0F172A;
+        color: #F8FAFC;
+    }
+    textarea, input {
+        background-color: #1E293B !important;
+        color: #F1F5F9 !important;
+        border: 1px solid #334155 !important;
+        border-radius: 10px !important;
+    }
+    .stButton>button {
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        transition: all 0.3s ease !important;
+    }
+    .stButton>button:hover {
+        transform: translateY(-2px);
+    }
+    div[data-testid="stExpander"] {
+        background-color: #1E293B;
+        border-radius: 10px;
+        border: 1px solid #334155;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
 )
 
-# Ejemplos por defecto basados en literatura
+# -------------------------------------------------------------
+# 2. CABECERA E IMAGEN DEL CEREBRITO LECTOR
+# -------------------------------------------------------------
+st.title("🧠 BookMind: Asistente de Lectura & Citas")
+st.caption(
+    "Explora textos, capta ideas principales y encuentra el pasaje exacto que"
+    " responde a tus dudas."
+)
+
+# Espacio para adjuntar la imagen del cerebrito leyendo
+try:
+  imagen_cerebro = Image.open("cerebro_lector.png")
+  st.image(
+      imagen_cerebro,
+      use_container_width=True,
+      caption="Análisis semántico de pasajes con TF-IDF",
+  )
+except FileNotFoundError:
+  st.info(
+      "🖼️ *Coloca una imagen llamada 'cerebro_lector.png' en la carpeta de tu"
+      " app para verla aquí.*"
+  )
+
+st.divider()
+
+# -------------------------------------------------------------
+# 3. LÓGICA DE PROCESAMIENTO TF-IDF
+# -------------------------------------------------------------
 default_docs = """Muchos años después, frente al pelotón de fusilamiento, el coronel Aureliano Buendía había de recordar aquella tarde remota en que su padre lo llevó a conocer el hielo.
 Macondo era entonces una aldea de veinte casas de barro y cañabrava construidas a la orilla de un río de aguas diáfanas.
 El mundo era tan reciente que muchas cosas carecían de nombre, y para mencionarlas había que señalarlas con el dedo.
@@ -36,48 +92,51 @@ def tokenize_and_stem(text):
   return [stemmer.stem(t) for t in tokens]
 
 
-# Estructura principal
+# -------------------------------------------------------------
+# 4. INTERFAZ DE USUARIO
+# -------------------------------------------------------------
 col1, col2 = st.columns([2, 1])
 
 with col1:
   text_input = st.text_area(
-      "📖 Pasajes del libro (un pasaje o fragmento por línea):",
+      "📖 Pasajes o capítulos del libro (uno por línea):",
       default_docs,
-      height=200,
+      height=180,
   )
 
-  # Manejo del estado para preguntas
   if "question" not in st.session_state:
     st.session_state.question = "¿Quién llevó a conocer el hielo a Aureliano?"
 
   question = st.text_input(
-      "❓ Escribe tu pregunta sobre la historia:", st.session_state.question
+      "❓ Escribe tu pregunta sobre el texto:", st.session_state.question
   )
 
 with col2:
-  st.markdown("### 💡 Consultas sugeridas:")
+  st.markdown("### 💡 Consultas Rápidas")
 
   def aplicar_pregunta(q):
     st.session_state.question = q
 
-  if st.button("¿Quién conoció el hielo?", use_container_width=True):
+  if st.button("🧊 ¿Quién conoció el hielo?", use_container_width=True):
     aplicar_pregunta("¿Quién llevó a conocer el hielo a Aureliano?")
     st.rerun()
 
-  if st.button("¿Cómo era el pueblo de Macondo?", use_container_width=True):
+  if st.button("🏡 ¿Cómo era Macondo?", use_container_width=True):
     aplicar_pregunta("¿Cómo era la aldea y las casas de Macondo?")
     st.rerun()
 
-  if st.button("¿Qué vendía Úrsula?", use_container_width=True):
+  if st.button("🍬 ¿Qué vendía Úrsula?", use_container_width=True):
     aplicar_pregunta("¿Qué cosas vendía Úrsula para la economía?")
     st.rerun()
 
-  if st.button("¿Qué experimentos hacía Melquíades?", use_container_width=True):
+  if st.button("🧲 ¿Qué trajo Melquíades?", use_container_width=True):
     aplicar_pregunta("¿Qué inventos e imanes trajo Melquíades?")
     st.rerun()
 
-# Procesamiento del análisis
-if st.button("🔍 Buscar Pasaje Relevante", type="primary"):
+# -------------------------------------------------------------
+# 5. RESULTADOS DEL ANÁLISIS
+# -------------------------------------------------------------
+if st.button("🔍 Rastrear Cita Relevante", type="primary"):
   documents = [d.strip() for d in text_input.split("\n") if d.strip()]
 
   if not documents:
@@ -95,22 +154,28 @@ if st.button("🔍 Buscar Pasaje Relevante", type="primary"):
     best_doc = documents[best_idx]
     best_score = similarities[best_idx]
 
-    st.divider()
-    st.subheader("🎯 Cita/Pasaje Encontrado")
-    st.markdown(f"**Tu pregunta:** *\"{question}\"*")
+    st.markdown("---")
+    st.subheader("🎯 Cita / Idea Encontrada")
 
     if best_score > 0.05:
-      st.success(f"📖 **Pasaje del libro:** \"{best_doc}\"")
-      st.info(f"📊 Nivel de coincidencia textual: **{best_score * 100:.1f}%**")
+      st.success(f"📖 **Pasaje detectado:** \"{best_doc}\"")
+      st.metric(
+          label="Nivel de Coincidencia Semántica",
+          value=f"{best_score * 100:.1f}%",
+      )
     else:
       st.warning(
-          "⚠️ **No se encontró un pasaje con suficiente certeza.** "
-          f"El más cercano fue: \"{best_doc}\""
+          "⚠️ **Baja coincidencia.** El pasaje más cercano fue: "
+          f"\"{best_doc}\""
       )
-      st.info(f"📊 Nivel de coincidencia: **{best_score * 100:.1f}%**")
+      st.metric(
+          label="Nivel de Coincidencia Semántica",
+          value=f"{best_score * 100:.1f}%",
+      )
 
-    # Inspección de términos relevantes
-    with st.expander("📊 Inspeccionar relevancia de términos (Matriz TF-IDF)"):
+    with st.expander(
+        "📊 Visualizar Matriz de Similitud Term-Vector (TF-IDF)"
+    ):
       df_tfidf = pd.DataFrame(
           X.toarray(),
           columns=vectorizer.get_feature_names_out(),
