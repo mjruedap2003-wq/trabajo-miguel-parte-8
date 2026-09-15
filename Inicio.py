@@ -92,7 +92,7 @@ st.caption(
 
 # Espacio para adjuntar la imagen del cerebrito leyendo
 try:
-  imagen_cerebro = Image.open("cerebro_lector.png")
+  imagen_cerebro = Image.open("Bob_lector.png")
   st.image(
       imagen_cerebro,
       use_container_width=True,
